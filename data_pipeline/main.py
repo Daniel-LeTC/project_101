@@ -9,12 +9,12 @@ if __name__ == '__main__':
 
     print(f"{username}, {password}")
     login(username,password)
-    get_bill_id_process = GetBillIDProcess(
-        start_date='2023-10-02',
-        end_date = '2023-10-10',
-        hs_code = "54",
-        transaction_type = "import"
-    )
+    # get_bill_id_process = GetBillIDProcess(
+    #     start_date='2023-10-02',
+    #     end_date = '2023-10-10',
+    #     hs_code = "54",
+    #     transaction_type = "import"
+    # )
     # get_bill_id_process.execute()
 
 
