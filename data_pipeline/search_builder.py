@@ -43,49 +43,49 @@ class SearchBuilder:
         return self
 
     def set_buyer_port(self, buyer_port):
-        self.unfold = True
+        
         self.fields['//*[@id="buyer_port"]'] = buyer_port
         return self
 
     def set_trans(self, trans):
-        self.unfold = True
+        
         self.fields['//*[@id="trans"]'] = trans
         return self
 
     def set_qty_min(self, qty_min):
-        self.unfold = True
+        
         self.fields['//*[@id="qty_min"]'] = qty_min
         return self
 
     def set_qty_max(self, qty_max):
-        self.unfold = True
+        
         self.fields['//*[@id="qty_max"]'] = qty_max
         return self
 
     def set_amount_min(self, amount_min):
-        self.unfold = True
+        
         self.fields['//*[@id="amount_min"]'] = amount_min
         return self
 
     def set_amount_max(self, amount_max):
-        self.unfold = True
+        
         self.fields['//*[@id="amount_max"]'] = amount_max
         return self
 
     def set_uusd_min(self, uusd_min):
-        self.unfold = True
+        
         self.fields['//*[@id="uusd_min"]'] = uusd_min
         return self
 
     def set_uusd_max(self, uusd_max):
-        self.unfold = True
+        
         self.fields['//*[@id="uusd_max"]'] = uusd_max
         return self
 
     def unfold_search(self):
         self.driver.find_element('xpath', '//*[@id="higher_search"]').click()
 
-    def start_search(self):
+    def get_total_bill(self):
         # load trang search
         self.driver.get('https://en.52wmb.com/customs-data/vietnam')
         WebDriverWait(self.driver, 30).until(
@@ -96,8 +96,8 @@ class SearchBuilder:
         )
         sleep(2)
         # Nếu có trường nằm trong phần search mở rộng thì mở rộng
-        if self.unfold:
-            self.unfold_search()
+
+        self.unfold_search()
 
         for field,value in self.fields.items():
             element = self.driver.find_element(By.XPATH, field)
