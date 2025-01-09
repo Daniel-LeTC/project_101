@@ -1,15 +1,13 @@
 from concurrent.futures import ThreadPoolExecutor
-from http.client import responses
 from threading import Lock
 from time import sleep, perf_counter
-from typing import final
 
 from bs4 import BeautifulSoup
 import urllib.parse
 import requests
 
 from driver import Driver
-from header import headers_get
+from header import headers_get, get_cookies
 from request_handler import RequestHandler
 request_handler = RequestHandler()
 driver = Driver.get_driver()
@@ -88,9 +86,11 @@ class GetBillIDProcess:
                 soup = BeautifulSoup(response.text, 'html.parser')
                 temp_bill_id = soup.find_all("tr")
                 # Kiểm tra dữ liệu trả về
-                bill_expect = 20 if i != self.final_page else self.expect_bill_of_final_page+1
+                bill_expect = 21 if i != self.final_page else self.expect_bill_of_final_page+1
                 if temp_bill_id is None or len(temp_bill_id) < bill_expect  :
-                    print(f"Dữ liệu không đủ, thử lại tại trang {i}, Lần {re_request + 1}")
+                    print(f"\nDữ liệu không đủ, thử lại tại trang {i}, Lần {re_request + 1}")
+                    if temp_bill_id is not None:
+                        print(f"Dữ liệu tại trang {i} là: {len(temp_bill_id)}")
                     re_request += 1
                     self.handle_get_bill_id_failed(url)
                     r = requests.get(url, headers=self.header, timeout=timeout_seconds)
@@ -140,6 +140,7 @@ class GetBillIDProcess:
             print(f"Số lượng bill_id hiện tại: {len(self.bill_ids)}. Yêu cầu: {self.total_bill}")
             attempt += 1
             # Chạy lại việc lấy bill_id với các URL, nhưng dừng khi đủ số lượng
+            self.header = get_cookies()
             with ThreadPoolExecutor() as executor:
                 # Tạo các task cho từng URL
                 futures = [executor.submit(self.get_bill_id, i) for i in self.pages]
