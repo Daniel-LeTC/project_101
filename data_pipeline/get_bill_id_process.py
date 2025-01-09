@@ -1,6 +1,8 @@
 from concurrent.futures import ThreadPoolExecutor
+from http.client import responses
 from threading import Lock
 from time import sleep, perf_counter
+from typing import final
 
 from bs4 import BeautifulSoup
 import urllib.parse
@@ -32,11 +34,14 @@ class GetBillIDProcess:
         self.uusd_min = ""
         self.uusd_max = ""
         self.total_bill = total_bill
-        self.pages = range(0, (total_bill//20) + 1, 1)
+        self.pages_list = []
+        self.final_page =(total_bill // 20) + 1
+        self.expect_bill_of_final_page = self.total_bill % 20
+        self.pages = range(0,self.final_page , 1)
         self.driver = Driver.get_driver()
         self.lock = Lock()
         self.start = 0
-        self.trade_date = []
+        self.trade_dates = []
         self.bill_ids = []
         self.bill_id_headers = []
         self.error_bill_ids = []
@@ -72,33 +77,32 @@ class GetBillIDProcess:
         return url
 
     def get_bill_id(self, i: int):
-        attempt = 0
         url = self.generate_url(i)
         re_request = 0
         max_retries = 5
         timeout_seconds = 10
-
+        response: requests.Response
         while re_request < max_retries:
             try:
                 response = requests.get(url, headers=self.header, timeout=timeout_seconds)
-                response.raise_for_status()  # Kiểm tra lỗi HTTP
                 soup = BeautifulSoup(response.text, 'html.parser')
                 temp_bill_id = soup.find_all("tr")
-
                 # Kiểm tra dữ liệu trả về
-                if not temp_bill_id:
-                    print(f"Dữ liệu không đủ, thử lại... Lần {re_request + 1}")
+                bill_expect = 20 if i != self.final_page else self.expect_bill_of_final_page+1
+                if temp_bill_id is None or len(temp_bill_id) < bill_expect  :
+                    print(f"Dữ liệu không đủ, thử lại tại trang {i}, Lần {re_request + 1}")
                     re_request += 1
                     self.handle_get_bill_id_failed(url)
-                    continue
-
+                    r = requests.get(url, headers=self.header, timeout=timeout_seconds)
+                    soup = BeautifulSoup(r.text, 'html.parser')
+                    temp_bill_id = soup.find_all("tr")
                 # Sử dụng lock để đảm bảo thread-safe
                 with self.lock:
                     for row in temp_bill_id[1:]:
                         billid_value = row.get('data-billid', '').replace('\\"', '')
                         if billid_value and billid_value not in self.bill_ids:
                             self.bill_ids.append(billid_value)
-                            self.trade_date.append(row.get('data-date', '').replace('\\"', ''))
+                            self.trade_dates.append(row.get('data-date', '').replace('\\"', ''))
                             self.bill_id_headers.append(url)
 
                         # Dừng nếu đã đủ số lượng
@@ -117,11 +121,8 @@ class GetBillIDProcess:
                     self.handle_get_bill_id_failed(url)
                 else:
                     print("Thử lại nhiều lần không thành công, dừng yêu cầu.")
+                    self.error_bill_ids.append(i)
                     break
-            finally:
-                print(f"re_request: {re_request}")
-        if re_request == max_retries-1:
-            self.error_bill_ids.append((i))
 
     def handle_get_bill_id_failed(self, url_total):
         print("Get lại header")
@@ -138,7 +139,6 @@ class GetBillIDProcess:
         while len(self.bill_ids) < self.total_bill and attempt < max_attempts:
             print(f"Số lượng bill_id hiện tại: {len(self.bill_ids)}. Yêu cầu: {self.total_bill}")
             attempt += 1
-
             # Chạy lại việc lấy bill_id với các URL, nhưng dừng khi đủ số lượng
             with ThreadPoolExecutor() as executor:
                 # Tạo các task cho từng URL
@@ -146,12 +146,8 @@ class GetBillIDProcess:
                 # Chờ tất cả các task hoàn thành
                 for future in futures:
                     future.result()
-
-            if len(self.bill_ids) >= self.total_bill:
-                print(f"Đã lấy đủ bill_id ({len(self.bill_ids)}).")
-                return
-
     def execute(self):
         self.check_and_reset_cookies()
-        # with ThreadPoolExecutor() as executor:
-        #     executor.map(self.get_bill_id, self.pages)
+        if len(self.error_bill_ids) != 0:
+            with ThreadPoolExecutor() as executor:
+                executor.map(self.get_bill_id, self.error_bill_ids)
