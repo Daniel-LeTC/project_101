@@ -3,10 +3,14 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from soupsieve.util import lower
 
 from driver import Driver
-from get_bill_id_process import GetBillIDProcess
 from time import sleep
+
+from header import driver
+
+
 class SearchBuilder:
     def __init__(self):
         self.driver = Driver.get_driver()
@@ -82,23 +86,26 @@ class SearchBuilder:
         self.fields['//*[@id="uusd_max"]'] = uusd_max
         return self
 
-    def unfold_search(self):
-        self.driver.find_element('xpath', '//*[@id="higher_search"]').click()
+    def set_transaction_type(self,type="import"):
+        if lower(type) == "import":
+            return
+        imex_field = driver.find_element('xpath', '//*[@id="search_ie_dropdown"]/div')
+        imex_field.click()
+        sleep(2)
+        ex_field = driver.find_element('xpath', '//*[@id="search_ie_dropdown"]/ul/li[2]').click()
 
-    def get_total_bill(self):
+    def unfold_search(self):
+        self.driver.find_element('xpath', '//*[@id="search-btn"]').click()
+
+    def get_total_bill(self,type_transaction = "import"):
         # load trang search
         self.driver.get('https://en.52wmb.com/customs-data/vietnam')
-        WebDriverWait(self.driver, 30).until(
-            EC.invisibility_of_element_located((By.CLASS_NAME, 'layui-layer layui-layer-loading'))
-        )
-        WebDriverWait(self.driver, 30).until(
-            EC.invisibility_of_element_located((By.CLASS_NAME, 'layui-layer-shade'))
-        )
+        WebDriverWait(self.driver, 30).until(EC.invisibility_of_element_located((By.CLASS_NAME, 'layui-layer layui-layer-loading')))
+        WebDriverWait(self.driver, 30).until(EC.invisibility_of_element_located((By.CLASS_NAME, 'layui-layer-shade')))
         sleep(2)
-        # Nếu có trường nằm trong phần search mở rộng thì mở rộng
 
-        self.unfold_search()
-
+        # self.pre_execute()
+        self.set_transaction_type(type_transaction)
         for field,value in self.fields.items():
             element = self.driver.find_element(By.XPATH, field)
             element.send_keys(Keys.CONTROL + 'a')
@@ -114,6 +121,13 @@ class SearchBuilder:
         soup = BeautifulSoup(self.driver.page_source, "html.parser")
         total_bill = soup.find("span", {"class": "hits"}).get_text(strip=True)
         total_bill = int(total_bill)
-        print(total_bill)
+        if total_bill>10000:
+            if self.fields['//*[@id="start_date"]'] != self.fields['//*[@id="end_date"]']:
+                print("LỖI: tổng lượng bill ko được quá 10k")
+                return 0
+            else:
+                print("CẢNH CÁO : total bill đã vượt qá 10k nhưng chỉ lấy đc 10k dữ liệu")
+                return 10000
+
         return total_bill
 
