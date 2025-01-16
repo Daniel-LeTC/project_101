@@ -1,4 +1,3 @@
-import csv
 import threading
 from queue import Queue
 from time import perf_counter, sleep
@@ -28,6 +27,12 @@ class GetBillDetailProcess:
         url += f"&ie=0&trade_date={str(self.trade_dates[j])}&country=vietnam&ptoken="
         return url
 
+    def handle_break_exception(self):
+        file_name = "handling_bill_id_for_exception.txt"
+        print(f"Write data to file ")
+        with open(file_name, "w") as file:
+            file.write(','.join(bill_id for bill_id in self.bill_ids))
+
     def get_bill_detail(self, j: int):
         flag = 0
         url_bill = self.generate_url(j)
@@ -50,6 +55,7 @@ class GetBillDetailProcess:
 
                 return df_1
             except Exception as e:
+                #handle exception response {staet}
                 if isinstance(e, KeyError):
                     print(f"Error: {e}")
                     state = df["state"]
@@ -59,38 +65,29 @@ class GetBillDetailProcess:
                         else:
                             print(f"Số lần bị state = 3001 : {flag}")
                             flag += 1
+                #handle request_
                 if perf_counter() - request_start_time > 6:
                     self.headers = headers_get(self.bill_id_headers[j])
                 else:
                     sleep(perf_counter() - request_start_time)
                     re_request += 1
                 if re_request >= 20:
-                    raise  Exception("Request limit reached")
-                    break
+                    return None
+
+
 
     def run_get_bill_detail(self):
-        try:
-            for j in range(len(self.bill_ids)):
-                df_1 = self.get_bill_detail(j)
-                if df_1 is not None:
-                    with self.lock:  # Acquire lock to safely update shared resources
-                        self.bills = pd.concat([self.bills, df_1])
-                        self.queue.put(df_1)  # Add to queue for CSV thread processing
-                sleep(0.8)
-        except Exception as e:
-            file_name = "handling_bill_id_for_exception.csv"
-            file = open(file_name, "w", newline="")  # newline="" để tránh thêm dòng trống không cần thiết
-            writer = csv.writer(file)
-
-            # Kiểm tra self.bill_ids là DataFrame
-            if isinstance(self.bill_ids, pd.DataFrame):
-                # Lấy dữ liệu từ self.total_bills đến dòng cuối cùng
-                rows_to_write = self.bill_ids.iloc[self.total_bills:].values.tolist()
-                writer.writerows(rows_to_write)
+        for j in range(len(self.bill_ids)):
+            df_1 = self.get_bill_detail(j)
+            if df_1 is not None:
+                with self.lock:  # Acquire lock to safely update shared resources
+                    self.bills = pd.concat([self.bills, df_1])
+                    self.queue.put(df_1)  # Add to queue for CSV thread processing
             else:
-                print("Error: self.bill_ids is not a DataFrame.")
+                self.handle_break_exception()
+                break
+            sleep(0.8)
 
-            file.close()
 
     def process_and_save_bills(self):
         while True:
@@ -111,6 +108,7 @@ class GetBillDetailProcess:
 
     def execute(self):
         fetch_thread = threading.Thread(target=self.run_get_bill_detail)
+        # luồng chạy nền
         save_thread = threading.Thread(target=self.process_and_save_bills, daemon=True)
 
         fetch_thread.start()
