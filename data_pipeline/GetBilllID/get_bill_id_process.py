@@ -11,29 +11,36 @@ from Authentication import Driver,headers_get, get_cookies
 driver = Driver.get_driver()
 lock = Lock()
 class GetBillIDProcess:
-    def __init__(self,total_bill:int):
-        self.start_date = ""
-        self.end_date = ""
-        self.hscode = ""
-        self.type_transaction = ""
-        self.buyer = ""
-        self.seller = ""
-        self.des = ""
-        self.seller_country = ""
-        self.seller_port = ""
-        self.buyer_port = ""
-        self.trans = ""
-        self.qty_min = ""
-        self.qty_max = ""
-        self.amount_min = ""
-        self.amount_max = ""
-        self.uusd_min = ""
-        self.uusd_max = ""
+    def __init__(self, total_bill: int, start_date: str = "", end_date: str = "", hscode: str = "",
+                 type_transaction: str = "", buyer: str = "", seller: str = "", des: str = "",
+                 seller_country: str = "", seller_port: str = "", buyer_port: str = "", trans: str = "",
+                 qty_min: str = "", qty_max: str = "", amount_min: str = "", amount_max: str = "",
+                 uusd_min: str = "", uusd_max: str = ""):
+        """
+        Khởi tạo với tham số đầu vào.
+        """
+        self.start_date = start_date
+        self.end_date = end_date or start_date
+        self.hscode = hscode
+        self.type_transaction = type_transaction
+        self.buyer = buyer
+        self.seller = seller
+        self.des = des
+        self.seller_country = seller_country
+        self.seller_port = seller_port
+        self.buyer_port = buyer_port
+        self.trans = trans
+        self.qty_min = qty_min
+        self.qty_max = qty_max
+        self.amount_min = amount_min
+        self.amount_max = amount_max
+        self.uusd_min = uusd_min
+        self.uusd_max = uusd_max
         self.total_bill = total_bill
         self.pages_list = []
-        self.final_page =(total_bill // 20) + 1
+        self.final_page = (total_bill // 20) + 1
         self.expect_bill_of_final_page = self.total_bill % 20
-        self.pages = range(0,self.final_page , 1)
+        self.pages = range(0, self.final_page, 1)
         self.driver = Driver.get_driver()
         self.lock = Lock()
         self.start = 0
@@ -43,6 +50,7 @@ class GetBillIDProcess:
         self.error_bill_ids = []
         self.isSuccessful = True
         self.header = None
+
 
 
     def generate_url(self, i):

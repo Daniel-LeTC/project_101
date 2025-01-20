@@ -5,19 +5,29 @@ from dotenv import load_dotenv
 from CSV import create_file_data_crawling_if_not_exist
 from GetBillDetail import  GetBillDetailProcess
 from Authentication import login
-from Search import SearchBuilder
-from GetBilllID import GetBillIDProcessBuilder
+from Search import GetTotalBill
+from GetBilllID import GetBillIDProcess
 from TransformPipeline import transform_data
 from Postgre import load_bill_detail_to_db
 
 load_dotenv(dotenv_path='.env')
 def manual_pipeline(start_date,end_date,hs,trans_type):
     login(os.getenv('USER_NAME'),os.getenv('PASSWORD'))
-    total_bills = SearchBuilder().set_date_range(start_date, end_date).set_hscode(hs).get_total_bill(trans_type)
-    print("Tổng số lượng bill là: ",total_bills)
+
+    total_bills = GetTotalBill(
+        start_date= start_date,
+        end_date= end_date,
+        hscode= hs,
+        transaction_type= trans_type
+    ).execute()
+
     if total_bills !=0:
-        get_bill_id_process = GetBillIDProcessBuilder(total_bills).set_date_range(start_date, end_date).set_hscode(
-            hs).build()
+        get_bill_id_process = GetBillIDProcess(
+            start_date=start_date,
+            end_date= end_date,
+            hscode=hs,
+            type_transaction=trans_type,
+            total_bill=total_bills)
         get_bill_id_process.execute()
 
         # tạo file csv để caching data trong quá trình GetBillDetailimport csv
