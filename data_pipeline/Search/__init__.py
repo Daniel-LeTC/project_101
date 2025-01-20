@@ -1,1 +1,1 @@
-from .search_builder import SearchBuilder
+from .search import GetTotalBill
