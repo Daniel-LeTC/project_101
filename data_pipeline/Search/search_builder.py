@@ -5,10 +5,10 @@ from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from soupsieve.util import lower
 
-from driver import Driver
+from Authentication import Driver
 from time import sleep
 
-from header import driver
+from Authentication.header import driver
 
 
 class SearchBuilder:

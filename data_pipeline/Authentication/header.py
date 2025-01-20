@@ -1,10 +1,4 @@
-from time import perf_counter, sleep
-from seleniumwire import webdriver
-from login import login
-import requests
-import json
-import pandas as pd
-from driver import Driver
+from Authentication import Driver
 
 driver = Driver.get_driver()
 

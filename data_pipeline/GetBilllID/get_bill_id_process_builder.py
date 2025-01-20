@@ -1,4 +1,4 @@
-from get_bill_id_process import GetBillIDProcess
+from .get_bill_id_process import GetBillIDProcess
 
 class GetBillIDProcessBuilder:
     def __init__(self,total_bill:int):

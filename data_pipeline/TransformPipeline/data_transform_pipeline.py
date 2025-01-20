@@ -1,19 +1,6 @@
 import pandas as pd
 import numpy as np
-from babel.messages.extract import extract
 from util import column_to_keep,import_column_mapping
-
-query = f'''begin;
-COPY data_crawling2.data_crawling (hs_code, transportation, unit_price_currency, products, trade_date,
-country_of_origin, b_l_number_or_awb_number, total_value_currency, weigh_unit, incoterms, buyer,
-quantity_unit, supplier, declaration_number, import_tax, customs, importer_code, total_value_usd,
-buyer_supplier_tel, loading_port, destination_country, unit_price_usd, bill_id, currency,
-flight_voyage_number, fob_usd, buyer_address, cif_usd, quantity, payment_method,
-gross_weight_kg, customs_warehouse_name_in_vietnamese_port, transaction_type)
-FROM '{filepath}'
-DELIMITER ','
-CSV HEADER;
-'''
 
 def clean_payment_method_khongtt(df: pd.DataFrame) -> pd.DataFrame:
     return df.loc[(df['payment_method'] != 'KHONGTT')]
@@ -64,6 +51,4 @@ def transform_data(filename):
     df = clean_date_column(df)
     df = remove_unused_column(df)
     df = convert_column(df, import_column_mapping)
-    # df.to_csv(f"{filename}_transformed_data.csv", index=False)
-
-    return df
+    df.to_csv(f"{filename}_transformed_data.csv", index=False)

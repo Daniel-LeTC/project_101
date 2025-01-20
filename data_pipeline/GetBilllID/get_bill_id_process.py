@@ -6,10 +6,8 @@ from bs4 import BeautifulSoup
 import urllib.parse
 import requests
 
-from driver import Driver
-from header import headers_get, get_cookies
-from request_handler import RequestHandler
-request_handler = RequestHandler()
+from Authentication import Driver,headers_get, get_cookies
+
 driver = Driver.get_driver()
 lock = Lock()
 class GetBillIDProcess:
@@ -104,14 +102,13 @@ class GetBillIDProcess:
                             self.bill_ids.append(billid_value)
                             self.trade_dates.append(row.get('data-date', '').replace('\\"', ''))
                             self.bill_id_headers.append(url)
+                    print(f"Số lượng temp_bill_id: {len(temp_bill_id)}, Số lượng bill_id: {len(self.bill_ids)}, Trang {i}")
 
-                        # Dừng nếu đã đủ số lượng
-                        if len(self.bill_ids) >= self.total_bill:
-                            print(f"Đã thu thập đủ bill_id trên trang {i}.")
-                            return
+                    # Dừng nếu đã đủ số lượng
+                    if len(self.bill_ids) >= self.total_bill:
+                        print(f"Đã thu thập đủ bill_id trên trang {i}.")
+                        return
 
-                print(f"URL: {url}")
-                print(f"Số lượng temp_bill_id: {len(temp_bill_id)}, Số lượng bill_id: {len(self.bill_ids)}, Trang {i}")
                 break  # Thoát vòng lặp nếu thành công
 
             except (requests.exceptions.RequestException, TypeError, ConnectionError) as e:
@@ -150,5 +147,8 @@ class GetBillIDProcess:
     def execute(self):
         self.check_and_reset_cookies()
         if len(self.error_bill_ids) != 0:
+            print("Get lại dữ liệu tại các trang")
+            for i in self.error_bill_ids:
+                print(f'{i}, ')
             with ThreadPoolExecutor() as executor:
                 executor.map(self.get_bill_id, self.error_bill_ids)

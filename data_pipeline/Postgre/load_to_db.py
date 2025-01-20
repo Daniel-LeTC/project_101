@@ -1,7 +1,7 @@
 from fileinput import filename
 
 import pandas as pd
-from connection import import_csv_to_postgresql
+from .connection import import_csv_to_postgresql
 
 fullpath = "D:/git/project_101/data_pipeline/"
 
@@ -25,7 +25,8 @@ def load_bill_detail_to_db(filename: str):
 
     # Thực hiện nhập dữ liệu
     response = import_csv_to_postgresql(query)
-    print(response['message'])
 
-if __name__ == '__main__':
-    load_bill_detail_to_db(filename='data_crawling_2024-08-31_to_2024-08-31_54_import_transformed_data.csv')
+
+# NOTE:  For testing
+# if __name__ == '__main__':
+#     load_bill_detail_to_db(filename='../data_crawling_2024-08-31_to_2024-08-31_54_import_transformed_data.csv')

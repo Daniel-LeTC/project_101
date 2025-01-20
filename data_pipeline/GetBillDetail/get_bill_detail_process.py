@@ -1,11 +1,11 @@
 import threading
 from queue import Queue
 from time import perf_counter, sleep
-from header import headers_get, get_cookies
+from Authentication import headers_get, get_cookies
 import requests
 import pandas as pd
 import json
-from login import logout_then_login
+from Authentication.login import logout_then_login
 from util import raw_import_header
 
 
@@ -28,7 +28,7 @@ class GetBillDetailProcess:
         return url
 
     def handle_break_exception(self):
-        file_name = "handling_bill_id_for_exception.txt"
+        file_name = "../handling_bill_id_for_exception.txt"
         print(f"Write data to file ")
         with open(file_name, "w") as file:
             file.write(','.join(bill_id for bill_id in self.bill_ids))

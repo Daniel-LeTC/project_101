@@ -1,7 +1,7 @@
 import psycopg2
 import os
 from  dotenv import load_dotenv
-load_dotenv(dotenv_path='.env')
+load_dotenv(dotenv_path='../.env')
 
 def import_csv_to_postgresql(query):
     if query is None:
@@ -18,7 +18,8 @@ def import_csv_to_postgresql(query):
                 cursor.execute(query)
         return {
             "status": "OK",
-            "message":"Successfully imported data from PostgreSQL"
+            "message":"Successfully imported data from PostgreSQL",
+            "state" : 200
         }
 
     except psycopg2.Error as e:
