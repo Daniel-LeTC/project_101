@@ -1,42 +1,43 @@
 from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
 from time import sleep, perf_counter
+from urllib.parse import quote
 
 from bs4 import BeautifulSoup
-import urllib.parse
+from urllib import parse
 import requests
+import pandas as pd
+import numpy as np
 
-from Authentication import Driver,headers_get, get_cookies
+from util import Driver,headers_get, get_cookies
 
 driver = Driver.get_driver()
 lock = Lock()
 class GetBillIDProcess:
-    def __init__(self, total_bill: int, start_date: str = "", end_date: str = "", hscode: str = "",
-                 type_transaction: str = "", buyer: str = "", seller: str = "", des: str = "",
-                 seller_country: str = "", seller_port: str = "", buyer_port: str = "", trans: str = "",
-                 qty_min: str = "", qty_max: str = "", amount_min: str = "", amount_max: str = "",
-                 uusd_min: str = "", uusd_max: str = ""):
-        """
-        Khởi tạo với tham số đầu vào.
-        """
-        self.start_date = start_date
+    def __init__(self, total_bill, start_date, end_date, hscode,
+                 transaction_type , buyer, supplier, description,
+                 seller_country, seller_port, buyer_port, trans,
+                 qty_min, qty_max, amount_min, amount_max,
+                 uusd_min, uusd_max):
+
+        self.start_date = start_date or ''
         self.end_date = end_date or start_date
-        self.hscode = hscode
-        self.type_transaction = type_transaction
-        self.buyer = buyer
-        self.seller = seller
-        self.des = des
-        self.seller_country = seller_country
-        self.seller_port = seller_port
-        self.buyer_port = buyer_port
-        self.trans = trans
-        self.qty_min = qty_min
-        self.qty_max = qty_max
-        self.amount_min = amount_min
-        self.amount_max = amount_max
-        self.uusd_min = uusd_min
-        self.uusd_max = uusd_max
-        self.total_bill = total_bill
+        self.hscode = hscode or ''
+        self.transaction_type = transaction_type or ''
+        self.buyer = buyer or ''
+        self.seller = supplier or ''
+        self.description = description or ''
+        self.seller_country = seller_country or ''
+        self.seller_port = seller_port or ''
+        self.buyer_port = buyer_port or ''
+        self.trans = trans or ''
+        self.qty_min = qty_min or ''
+        self.qty_max = qty_max or ''
+        self.amount_min = amount_min or ''
+        self.amount_max = amount_max or ''
+        self.uusd_min = uusd_min or ''
+        self.uusd_max = uusd_max or ''
+        self.total_bill = total_bill or ''
         self.pages_list = []
         self.final_page = (total_bill // 20) + 1
         self.expect_bill_of_final_page = self.total_bill % 20
@@ -54,7 +55,7 @@ class GetBillIDProcess:
 
 
     def generate_url(self, i):
-        transaction_type_code = "1" if self.type_transaction == "export" else "0"
+        transaction_type_code = "1" if self.transaction_type == "export" else "0"
 
         # Khởi tạo URL với các tham số bắt buộc
         url = f"https://en.52wmb.com/async/raw/trade/list?country=vietnam&=undefined&ie={transaction_type_code}"
@@ -62,13 +63,13 @@ class GetBillIDProcess:
         # Thêm từng tham số động
         url += f"&start_date={self.start_date}&end_date={self.end_date}"
         url += f"&hs={self.hscode}"
-        url += f"&des={urllib.parse.quote(self.des)}"
-        url += f"&seller={urllib.parse.quote(self.seller)}"
-        url += f"&buyer={urllib.parse.quote(self.buyer)}"
-        url += f"&seller_country={urllib.parse.quote(self.seller_country)}"
-        url += f"&seller_port={urllib.parse.quote(self.seller_port)}"
-        url += f"&buyer_port={urllib.parse.quote(self.buyer_port)}"
-        url += f"&trans={self.trans}"
+        url += f"&des={parse.quote(self.description)}"
+        url += f"&seller={parse.quote(self.seller)}"
+        url += f"&buyer={parse.quote(self.buyer)}"
+        url += f"&seller_country={parse.quote(self.seller_country)}"
+        url += f"&seller_port={parse.quote(self.seller_port)}"
+        url += f"&buyer_port={parse.quote(self.buyer_port)}"
+        url += f"&trans={self.trans}" # transport
         url += f"&qty_min={self.qty_min}"
         url += f"&qty_max={self.qty_max}"
         url += f"&amount_min={self.amount_min}"
@@ -138,7 +139,7 @@ class GetBillIDProcess:
             sleep(headers_get_delay)
             self.header = headers_get(url_total)
 
-    def check_and_reset_cookies(self):
+    def start_get_bill_id(self):
         attempt = 0
         max_attempts = 5  # Giới hạn số lần reset cookie
         while len(self.bill_ids) < self.total_bill and attempt < max_attempts:
@@ -153,10 +154,11 @@ class GetBillIDProcess:
                 for future in futures:
                     future.result()
     def execute(self):
-        self.check_and_reset_cookies()
-        if len(self.error_bill_ids) != 0:
-            print("Get lại dữ liệu tại các trang")
-            for i in self.error_bill_ids:
-                print(f'{i}, ')
+        self.start_get_bill_id()
+        if len(self.bill_ids) < self.total_bill:
             with ThreadPoolExecutor() as executor:
                 executor.map(self.get_bill_id, self.error_bill_ids)
+
+
+
+

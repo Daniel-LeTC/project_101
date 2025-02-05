@@ -4,7 +4,7 @@ from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from bs4 import BeautifulSoup
 from time import sleep
-from Authentication import Driver
+from util import Driver
 driver = Driver.get_driver()
 
 from selenium.webdriver.common.by import By
@@ -13,14 +13,14 @@ from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from bs4 import BeautifulSoup
 from time import sleep
-from Authentication import Driver
+from util import Driver
 
 class GetTotalBill:
-    def __init__(self, start_date, end_date=None, hscode=None, description=None,
-                 supplier=None, buyer=None, seller_country=None, seller_port=None,
-                 buyer_port=None, trans=None, qty_min=None, qty_max=None,
-                 amount_min=None, amount_max=None, uusd_min=None, uusd_max=None,
-                 transaction_type="import"):
+    def __init__(self, start_date, end_date, hscode, description,
+                 supplier, buyer, seller_country, seller_port,
+                 buyer_port, trans, qty_min, qty_max,
+                 amount_min, amount_max, uusd_min, uusd_max,
+                 transaction_type):
         """
         Khởi tạo với tất cả các tham số cần thiết.
         """
@@ -28,30 +28,25 @@ class GetTotalBill:
         self.start_date = start_date
         self.end_date = end_date or start_date
         self.hscode = hscode
-        self.description = description
-        self.supplier = supplier
-        self.buyer = buyer
-        self.seller_country = seller_country
-        self.seller_port = seller_port
-        self.buyer_port = buyer_port
-        self.trans = trans
-        self.qty_min = qty_min
-        self.qty_max = qty_max
-        self.amount_min = amount_min
-        self.amount_max = amount_max
-        self.uusd_min = uusd_min
-        self.uusd_max = uusd_max
-        self.transaction_type = transaction_type
-
+        self.description = description or ''
+        self.supplier = supplier or ''
+        self.buyer = buyer or ''
+        self.seller_country = seller_country or ''
+        self.seller_port = seller_port or ''
+        self.buyer_port = buyer_port or ''
+        self.trans = trans or ''
+        self.qty_min = qty_min or ''
+        self.qty_max = qty_max or ''
+        self.amount_min = amount_min or ''
+        self.amount_max = amount_max or ''
+        self.uusd_min = uusd_min or ''
+        self.uusd_max = uusd_max or ''
+        self.transaction_type = transaction_type or "import"
     def process_field(self, field_xpath, value):
-        """
-        Kiểm tra giá trị không null, sau đó xử lý nhập liệu vào trường trên giao diện.
-        """
-        if value:
-            element = self.driver.find_element(By.XPATH, field_xpath)
-            element.send_keys(Keys.CONTROL + 'a')
-            element.send_keys(Keys.DELETE)
-            element.send_keys(value)
+        element = self.driver.find_element(By.XPATH, field_xpath)
+        element.send_keys(Keys.CONTROL + 'a')
+        element.send_keys(Keys.DELETE)
+        element.send_keys(value)
 
     def execute(self):
         """
@@ -90,9 +85,10 @@ class GetTotalBill:
             '//*[@id="uusd_max"]': self.uusd_max
         }
 
-        # Điền dữ liệu vào các trường
         for field_xpath, value in fields.items():
-            self.process_field(field_xpath, value)
+            if value != '':
+                print(f"{field_xpath} : {value}")
+                self.process_field(field_xpath, value)
 
         # Bấm nút tìm kiếm
         self.driver.find_element(By.XPATH, '//*[@id="search_btn"]').click()
