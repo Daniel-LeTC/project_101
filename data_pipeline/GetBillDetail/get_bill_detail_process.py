@@ -1,37 +1,43 @@
+import os
 import threading
 from queue import Queue
 from time import perf_counter, sleep
-from Authentication import headers_get, get_cookies
+from util import headers_get, get_cookies
 import requests
 import pandas as pd
 import json
-from Authentication.login import logout_then_login
+from util.login import logout_then_login
 from util import raw_import_header
-
+from util import ERROR_HANDLING_FILE_PATH,RAW_DATA
 
 class GetBillDetailProcess:
-    def __init__(self, bill_ids, trade_dates, bill_id_headers, output_csv):
+    def __init__(self,bill_ids,trade_dates,bill_id_headers):
         self.bill_ids = bill_ids
-        self.trade_dates = trade_dates
+        self.trade_dates =  trade_dates
         self.bill_id_headers = bill_id_headers
         self.headers = get_cookies()
         self.bills: pd.DataFrame = pd.DataFrame()
         self.total_bills = 0
-        self.output_csv = output_csv
         self.queue = Queue()
         self.lock = threading.Lock()  # Lock to handle shared resources
-
+        self.isBreak = False
     def generate_url(self, j):
         url = "https://en.52wmb.com/async/raw/bill/detail?id="
         url += f"{str(self.bill_ids[j])}"
         url += f"&ie=0&trade_date={str(self.trade_dates[j])}&country=vietnam&ptoken="
         return url
 
-    def handle_break_exception(self):
-        file_name = "../handling_bill_id_for_exception.txt"
-        print(f"Write data to file ")
-        with open(file_name, "w") as file:
-            file.write(','.join(bill_id for bill_id in self.bill_ids))
+    def handle_break_exception(self,index):
+        bill_ids = self.bill_ids[index:]
+        trade_dates = self.trade_dates[index:]
+        bill_id_headers = self.bill_id_headers[index:]
+        data_to_write = pd.DataFrame({
+            "bill_ids": bill_ids,
+            "trade_dates": trade_dates,
+            "bill_id_headers" : bill_id_headers,
+        })
+        data_to_write.to_csv(ERROR_HANDLING_FILE_PATH, index=False)
+        self.isBreak = True
 
     def get_bill_detail(self, j: int):
         flag = 0
@@ -73,6 +79,8 @@ class GetBillDetailProcess:
                     re_request += 1
                 if re_request >= 20:
                     return None
+            except KeyboardInterrupt as e:
+                self.handle_break_exception(j)
 
 
 
@@ -84,7 +92,7 @@ class GetBillDetailProcess:
                     self.bills = pd.concat([self.bills, df_1])
                     self.queue.put(df_1)  # Add to queue for CSV thread processing
             else:
-                self.handle_break_exception()
+                self.handle_break_exception(j)
                 break
             sleep(0.8)
 
@@ -98,7 +106,7 @@ class GetBillDetailProcess:
                     df = df.reindex(columns=raw_import_header, fill_value="")
 
                     # Append to CSV without adding header if file exists
-                    df.to_csv(self.output_csv, mode="a", index=False, header=False)
+                    df.to_csv(RAW_DATA, mode="a", index=False, header=False)
 
                     with self.lock:
                         self.bills = self.bills.iloc[0:0]  # Clear bills DataFrame
@@ -108,11 +116,13 @@ class GetBillDetailProcess:
 
     def execute(self):
         fetch_thread = threading.Thread(target=self.run_get_bill_detail)
-        # luồng chạy nền
         save_thread = threading.Thread(target=self.process_and_save_bills, daemon=True)
 
         fetch_thread.start()
         save_thread.start()
 
         fetch_thread.join()
+        if not self.isBreak and os.path.exists(ERROR_HANDLING_FILE_PATH):
+            os.remove(ERROR_HANDLING_FILE_PATH)
         print("Fetching complete. Waiting for saving thread to finish.")
+
