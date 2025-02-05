@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
-from util import column_to_keep,import_column_mapping
+from util import column_to_keep, import_column_mapping, RAW_DATA
+
 
 def clean_payment_method_khongtt(df: pd.DataFrame) -> pd.DataFrame:
     return df.loc[(df['payment_method'] != 'KHONGTT')]
@@ -42,8 +43,8 @@ def convert_column(df:pd.DataFrame,columns,type_trans="import"):
     df['transaction_type'] = type_trans
     df.rename(columns=columns,inplace=True)
     return df
-def transform_data(filename):
-    df = pd.read_csv(f"{filename}.csv")
+def transform_data():
+    df = pd.read_csv(RAW_DATA)
     pd.options.mode.copy_on_write = True
     df = clean_payment_method_khongtt(df)
     df = clean_weight(df)
