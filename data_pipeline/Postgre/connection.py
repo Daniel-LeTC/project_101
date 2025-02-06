@@ -16,15 +16,7 @@ def import_csv_to_postgresql(query):
         as connection):
             with connection.cursor() as cursor:
                 cursor.execute(query)
-        return {
-            "status": "OK",
-            "message":"Successfully imported data from PostgreSQL",
-            "state" : 200
-        }
+        return "Succeed"
 
     except psycopg2.Error as e:
-        return {
-            "status": "ERROR",
-            "state": f"{e.pgcode}",
-            "message":f"{e.pgerror}"
-        }
+        return f"{e.__class__.__name__}"

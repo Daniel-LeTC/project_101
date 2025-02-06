@@ -42,6 +42,7 @@ class GetTotalBill:
         self.uusd_min = uusd_min or ''
         self.uusd_max = uusd_max or ''
         self.transaction_type = transaction_type or "import"
+
     def process_field(self, field_xpath, value):
         element = self.driver.find_element(By.XPATH, field_xpath)
         element.send_keys(Keys.CONTROL + 'a')
@@ -103,13 +104,6 @@ class GetTotalBill:
         total_bill = int(total_bill)
 
         # Xử lý giới hạn số lượng bill
-        if total_bill > 10000:
-            if self.start_date != self.end_date:
-                print("LỖI: Tổng lượng bill không được quá 10k!")
-                return 0
-            else:
-                print("CẢNH CÁO: Total bill đã vượt quá 10k nhưng chỉ lấy được 10k dữ liệu.")
-                return 10000
-
-        return total_bill
+        if total_bill > 10000 and (self.start_date == self.end_date):
+            raise Exception("Bill vượt quá 10k")
 

@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from util import column_to_keep, import_column_mapping, RAW_DATA
+from util import column_to_keep, import_column_mapping, RAW_DATA_FILE_PATH, TRANSFORMED_DATA_FILE_PATH
 
 
 def clean_payment_method_khongtt(df: pd.DataFrame) -> pd.DataFrame:
@@ -44,12 +44,17 @@ def convert_column(df:pd.DataFrame,columns,type_trans="import"):
     df.rename(columns=columns,inplace=True)
     return df
 def transform_data():
-    df = pd.read_csv(RAW_DATA)
-    pd.options.mode.copy_on_write = True
-    df = clean_payment_method_khongtt(df)
-    df = clean_weight(df)
-    df = clean_quantity(df)
-    df = clean_date_column(df)
-    df = remove_unused_column(df)
-    df = convert_column(df, import_column_mapping)
-    df.to_csv(f"{filename}_transformed_data.csv", index=False)
+    try:
+        df = pd.read_csv(RAW_DATA_FILE_PATH)
+        pd.options.mode.copy_on_write = True
+        df = clean_payment_method_khongtt(df)
+        df = clean_weight(df)
+        df = clean_quantity(df)
+        df = clean_date_column(df)
+        df = remove_unused_column(df)
+        df = convert_column(df, import_column_mapping)
+        df.to_csv(TRANSFORMED_DATA_FILE_PATH, index=False)
+        return True
+    except Exception as e :
+        print(f"Error occur when transform data : {e}")
+        return False

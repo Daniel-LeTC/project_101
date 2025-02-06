@@ -1,17 +1,21 @@
+import json
 import os
 import threading
 from queue import Queue
 from time import perf_counter, sleep
-from util import headers_get, get_cookies
-import requests
+
 import pandas as pd
-import json
-from util.login import logout_then_login
+import requests
+
+from util import ERROR_HANDLING_FILE_PATH, RAW_DATA_FILE_PATH
+from util import headers_get, get_cookies
 from util import raw_import_header
-from util import ERROR_HANDLING_FILE_PATH,RAW_DATA
+from util.login import logout_then_login
+
 
 class GetBillDetailProcess:
     def __init__(self,bill_ids,trade_dates,bill_id_headers):
+        self.isKeyBoardInterrupt = False
         self.bill_ids = bill_ids
         self.trade_dates =  trade_dates
         self.bill_id_headers = bill_id_headers
@@ -37,7 +41,20 @@ class GetBillDetailProcess:
             "bill_id_headers" : bill_id_headers,
         })
         data_to_write.to_csv(ERROR_HANDLING_FILE_PATH, index=False)
-        self.isBreak = True
+
+    def handle_retries(self, j, request_start_time, re_request):
+        """Xử lý retry nếu quá thời gian hoặc số lần thử quá nhiều"""
+        if perf_counter() - request_start_time > 6:
+            self.headers = headers_get(self.bill_id_headers[j])
+        else:
+            sleep(perf_counter() - request_start_time)
+            re_request += 1
+
+        if re_request >= 20:
+            self.handle_break_exception(j, "retry_error")
+            return False  # Dừng retry nếu đã vượt quá giới hạn
+        return True  # Tiếp tục retry
+
 
     def get_bill_detail(self, j: int):
         flag = 0
@@ -60,27 +77,29 @@ class GetBillDetailProcess:
                     raise ValueError("Insufficient data, retrying...")
 
                 return df_1
-            except Exception as e:
-                #handle exception response {staet}
-                if isinstance(e, KeyError):
-                    print(f"Error: {e}")
-                    state = df["state"]
-                    if state == 3001:
-                        if flag > 2:
-                            logout_then_login()
-                        else:
-                            print(f"Số lần bị state = 3001 : {flag}")
-                            flag += 1
-                #handle request_
-                if perf_counter() - request_start_time > 6:
-                    self.headers = headers_get(self.bill_id_headers[j])
+            except KeyError as e:
+                print(f"Error: {e}")
+
+                state = df.get("state")  # Dùng .get để tránh lỗi KeyError
+                if state == 3001:
+                    if re_request > 2:
+                        logout_then_login()
+                    else:
+                        print(f"Số lần bị state = 3001 : {flag}")
+                        re_request += 1
+                if not self.handle_retries( j, request_start_time, re_request):
+                    return None  # Dừng nếu đã retry quá số lần
+
+            except ConnectionError:
+                if not self.handle_retries( j, request_start_time, re_request):
+                    return None  # Dừng nếu đã retry quá số lần
+
+            except BaseException as e:  # Bắt tất cả các lỗi khác
+                self.handle_break_exception(j)  # Gọi ngay lập tức nếu là lỗi khác
+                if e.__class__.__name__ == "KeyBoardInterrupt":
+                    self.isKeyBoardInterrupt = True
                 else:
-                    sleep(perf_counter() - request_start_time)
-                    re_request += 1
-                if re_request >= 20:
                     return None
-            except KeyboardInterrupt as e:
-                self.handle_break_exception(j)
 
 
 
@@ -89,11 +108,10 @@ class GetBillDetailProcess:
             df_1 = self.get_bill_detail(j)
             if df_1 is not None:
                 with self.lock:  # Acquire lock to safely update shared resources
-                    self.bills = pd.concat([self.bills, df_1])
                     self.queue.put(df_1)  # Add to queue for CSV thread processing
             else:
                 self.handle_break_exception(j)
-                break
+                raise Exception("Error occur when get bill detail")
             sleep(0.8)
 
 
@@ -106,23 +124,25 @@ class GetBillDetailProcess:
                     df = df.reindex(columns=raw_import_header, fill_value="")
 
                     # Append to CSV without adding header if file exists
-                    df.to_csv(RAW_DATA, mode="a", index=False, header=False)
+                    df.to_csv(RAW_DATA_FILE_PATH, mode="a", index=False, header=False)
 
                     with self.lock:
-                        self.bills = self.bills.iloc[0:0]  # Clear bills DataFrame
-                    print("Data saved and cleared.")
+                        print("Data saved and cleared.")
             except:
                 print("No data to process. Waiting...")
 
     def execute(self):
-        fetch_thread = threading.Thread(target=self.run_get_bill_detail)
-        save_thread = threading.Thread(target=self.process_and_save_bills, daemon=True)
+        try:
+            fetch_thread = threading.Thread(target=self.run_get_bill_detail)
+            save_thread = threading.Thread(target=self.process_and_save_bills, daemon=True)
 
-        fetch_thread.start()
-        save_thread.start()
+            fetch_thread.start()
+            save_thread.start()
 
-        fetch_thread.join()
-        if not self.isBreak and os.path.exists(ERROR_HANDLING_FILE_PATH):
-            os.remove(ERROR_HANDLING_FILE_PATH)
-        print("Fetching complete. Waiting for saving thread to finish.")
+            fetch_thread.join()
+            if not self.isBreak and os.path.exists(ERROR_HANDLING_FILE_PATH):
+                os.remove(ERROR_HANDLING_FILE_PATH)
+            print("Fetching complete. Waiting for saving thread to finish.")
+        except Exception as e :
+            raise e
 

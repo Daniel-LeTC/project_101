@@ -158,6 +158,8 @@ class GetBillIDProcess:
         if len(self.bill_ids) < self.total_bill:
             with ThreadPoolExecutor() as executor:
                 executor.map(self.get_bill_id, self.error_bill_ids)
+        if len(self.bill_ids) < self.total_bill :
+            raise Exception("Cannot get full bill id")
 
 
 
