@@ -20,13 +20,12 @@ def manual_pipeline(start_date, end_date, hscode, description,
                     amount_min, amount_max, uusd_min, uusd_max,
                     transaction_type="import"):
     try:
-        total_bills = GetTotalBill(
+
+        get_bill_id_process = GetBillIDProcess(
             start_date=start_date,
             end_date=end_date,
             hscode=hscode,
-            transaction_type=transaction_type,
             description=description,
-            supplier=supplier,
             buyer=buyer,
             seller_port=seller_port,
             seller_country=seller_country,
@@ -38,44 +37,25 @@ def manual_pipeline(start_date, end_date, hscode, description,
             amount_max=amount_max,
             uusd_min=uusd_min,
             uusd_max=uusd_max,
-        ).execute()
+            transaction_type=transaction_type,
+            supplier=supplier
+        )
+        get_bill_id_process.execute()
 
-        if total_bills != 0:
-            get_bill_id_process = GetBillIDProcess(
-                start_date=start_date,
-                end_date=end_date,
-                hscode=hscode,
-                description=description,
-                buyer=buyer,
-                seller_port=seller_port,
-                seller_country=seller_country,
-                buyer_port=buyer_port,
-                trans=trans,
-                qty_min=qty_min,
-                qty_max=qty_max,
-                amount_min=amount_min,
-                amount_max=amount_max,
-                uusd_min=uusd_min,
-                uusd_max=uusd_max,
-                transaction_type=transaction_type,
-                supplier=supplier,
-                total_bill=total_bills
-            )
-            get_bill_id_process.execute()
 
-            # tạo file csv để caching data trong quá trình GetBillDetailimport csv
-            create_file_data_crawling_if_not_exist(RAW_DATA_FILE_PATH)
-            get_detail_process = GetBillDetailProcess(bill_ids=get_bill_id_process.bill_ids,
-                                                      trade_dates=get_bill_id_process.trade_dates,
-                                                      bill_id_headers=get_bill_id_process.bill_id_headers)
-            get_detail_process.execute()
-            if not transform_data():
-                return
-            load_bill_detail_to_db(TRANSFORMED_DATA_FILE_PATH)
-
-    except :
-        transform_data()
+        # tạo file csv để caching data trong quá trình GetBillDetailimport csv
+        create_file_data_crawling_if_not_exist(RAW_DATA_FILE_PATH)
+        get_detail_process = GetBillDetailProcess(bill_ids=get_bill_id_process.bill_ids,
+                                                  trade_dates=get_bill_id_process.trade_dates,
+                                                  bill_id_headers=get_bill_id_process.bill_id_headers)
+        get_detail_process.execute()
+        if not transform_data():
+            return
         load_bill_detail_to_db(TRANSFORMED_DATA_FILE_PATH)
+    except Exception as e :
+        print(e)
+        transform_data()
+        # load_bill_detail_to_db(TRANSFORMED_DATA_FILE_PATH)
         beep_sound()
 
 def rerun_pipeline():
@@ -92,9 +72,9 @@ if __name__ == '__main__':
     # khai báo biến
     start = perf_counter()
 
-    start_date = "2024-10-28"
-    end_date = "2024-12-10"
-    hs = "50"
+    start_date = "2023-12-10"
+    end_date = "2024-02-29"
+    hs = "52"
     description = None
     supplier = None
     buyer = None

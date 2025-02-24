@@ -6,15 +6,15 @@ from urllib.parse import quote
 from bs4 import BeautifulSoup
 from urllib import parse
 import requests
-import pandas as pd
-import numpy as np
+import json
 
+from GetBilllID.bill_id_factory import BillIDFactory
 from util import Driver,headers_get, get_cookies
 
 driver = Driver.get_driver()
 lock = Lock()
 class GetBillIDProcess:
-    def __init__(self, total_bill, start_date, end_date, hscode,
+    def __init__(self, start_date, end_date, hscode,
                  transaction_type , buyer, supplier, description,
                  seller_country, seller_port, buyer_port, trans,
                  qty_min, qty_max, amount_min, amount_max,
@@ -37,14 +37,12 @@ class GetBillIDProcess:
         self.amount_max = amount_max or ''
         self.uusd_min = uusd_min or ''
         self.uusd_max = uusd_max or ''
-        self.total_bill = total_bill or ''
-        self.pages_list = []
-        self.final_page = (total_bill // 20) + 1
-        self.expect_bill_of_final_page = self.total_bill % 20
-        self.pages = range(0, self.final_page, 1)
+        self.total_bills = 0
         self.driver = Driver.get_driver()
         self.lock = Lock()
         self.start = 0
+        self.final_page = None
+        self.expect_bill_of_final_page = None
         self.trade_dates = []
         self.bill_ids = []
         self.bill_id_headers = []
@@ -52,16 +50,45 @@ class GetBillIDProcess:
         self.isSuccessful = True
         self.header = None
 
+    def get_total_bills(self, start_date=None, end_date=None):
+        start_date = start_date or self.start_date
+        end_date = end_date or self.end_date
 
+        url = self.generate_url(0, start_date, end_date)
+        print(f"url: {url}")
+        re_request = 0
+        max_retries = 5
+        response: requests.Response
 
-    def generate_url(self, i):
+        while re_request < max_retries:
+            try:
+                driver.get(url)
+                json_text = driver.find_element("tag name", "body").text
+
+                data = json.loads(json_text)
+                hits = data.get("hits")
+                print(f"total bills : {hits}")
+                return hits
+            except (requests.exceptions.RequestException, TypeError, ConnectionError, KeyError) as e:
+                print(f"Loại lỗi: {e}. Lần thử {re_request + 1}")
+                re_request += 1
+                self.handle_get_bill_id_failed(url)
+                sleep(3)
+
+        return 0  # Trả về 0 nếu không lấy được dữ liệu
+
+    def generate_url(self, i, start_date=None, end_date=None):
         transaction_type_code = "1" if self.transaction_type == "export" else "0"
+
+        # Sử dụng self.start_date và self.end_date nếu các giá trị không được truyền vào
+        start_date = start_date or self.start_date
+        end_date = end_date or self.end_date
 
         # Khởi tạo URL với các tham số bắt buộc
         url = f"https://en.52wmb.com/async/raw/trade/list?country=vietnam&=undefined&ie={transaction_type_code}"
 
         # Thêm từng tham số động
-        url += f"&start_date={self.start_date}&end_date={self.end_date}"
+        url += f"&start_date={start_date}&end_date={end_date}"
         url += f"&hs={self.hscode}"
         url += f"&des={parse.quote(self.description)}"
         url += f"&seller={parse.quote(self.seller)}"
@@ -69,7 +96,7 @@ class GetBillIDProcess:
         url += f"&seller_country={parse.quote(self.seller_country)}"
         url += f"&seller_port={parse.quote(self.seller_port)}"
         url += f"&buyer_port={parse.quote(self.buyer_port)}"
-        url += f"&trans={self.trans}" # transport
+        url += f"&trans={self.trans}"  # transport
         url += f"&qty_min={self.qty_min}"
         url += f"&qty_max={self.qty_max}"
         url += f"&amount_min={self.amount_min}"
@@ -114,7 +141,7 @@ class GetBillIDProcess:
                     print(f"Số lượng temp_bill_id: {len(temp_bill_id)}, Số lượng bill_id: {len(self.bill_ids)}, Trang {i}")
 
                     # Dừng nếu đã đủ số lượng
-                    if len(self.bill_ids) >= self.total_bill:
+                    if len(self.bill_ids) >= self.total_bills:
                         print(f"Đã thu thập đủ bill_id trên trang {i}.")
                         return
 
@@ -139,27 +166,11 @@ class GetBillIDProcess:
             sleep(headers_get_delay)
             self.header = headers_get(url_total)
 
-    def start_get_bill_id(self):
-        attempt = 0
-        max_attempts = 5  # Giới hạn số lần reset cookie
-        while len(self.bill_ids) < self.total_bill and attempt < max_attempts:
-            print(f"Số lượng bill_id hiện tại: {len(self.bill_ids)}. Yêu cầu: {self.total_bill}")
-            attempt += 1
-            # Chạy lại việc lấy bill_id với các URL, nhưng dừng khi đủ số lượng
-            self.header = get_cookies()
-            with ThreadPoolExecutor() as executor:
-                # Tạo các task cho từng URL
-                futures = [executor.submit(self.get_bill_id, i) for i in self.pages]
-                # Chờ tất cả các task hoàn thành
-                for future in futures:
-                    future.result()
+
     def execute(self):
-        self.start_get_bill_id()
-        if len(self.bill_ids) < self.total_bill:
-            with ThreadPoolExecutor() as executor:
-                executor.map(self.get_bill_id, self.error_bill_ids)
-        if len(self.bill_ids) < self.total_bill :
-            raise Exception("Cannot get full bill id")
+        self.total_bills = self.get_total_bills()
+        get_bill_id_processor = BillIDFactory.get_crawler(self)
+        get_bill_id_processor.start_get_bill_id()
 
 
 
